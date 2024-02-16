@@ -1,0 +1,3 @@
+Linear congruential generator :https://www.youtube.com/watch?v=kRCmR4qr-hQ
+Q:What is the easiest algorithm for pseudorandom number generation in RISC-V?
+A:

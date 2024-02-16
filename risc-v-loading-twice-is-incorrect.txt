@@ -1,0 +1,249 @@
+.data
+character:  .byte 0,0
+box:        .byte 0,0
+target:     .byte 0,0
+
+lightOn: .word 0x0A3799
+lightOnBox: .word 0xFF0000
+lightOff: .word 0x000000
+
+
+.globl main
+.text
+
+main:
+    # TODO: Before we deal with the LEDs, generate random locations for
+    # the character, box, and target. static locations have been provided
+    # for the (x,y) coordinates for each of these elements within the 8x8
+    # grid. 
+    # There is a rand function, but note that it isn't very good! You 
+    # should at least make sure that none of the items are on top of each
+    # other.
+   
+    # TODO: Now, light up the playing field. Add walls around the edges
+    # and light up the character, box, and target with the colors you have
+    # chosen. (Yes, you choose, and you should document your choice.)
+    # Hint: the LEDs are an array, so you should be able to calculate 
+    # offsets from the (0, 0) LED.
+
+    # TODO: Enter a loop and wait for user input. Whenever user input is
+    # received, update the grid with the new location of the player -and
+    # if applicable, box and target-. You will also need to restart the
+    # game if the user requests it and indicate when the box is located
+    # in the same position as the target.
+
+    # TODO: That's the base game! Now, pick a pair of enhancements and
+    # consider how to implement them.
+    
+    
+    # TODO #1:
+    la s11, character # Load the address of all 3 materials
+    la s10, box # Load the address of all 3 materials
+    la s9, target # Load the address of all 3 materials
+    generateCharacter:
+    addi a0, zero, 8 # Ensure the limit of rand function is 8
+    call rand
+    sw a0, 0(s11) # Store those random (x, y) for character in memory.
+    addi a0, zero, 8 # Ensure the limit of rand function is 8
+    call rand
+    sw a0, 4(s11)
+    
+    generateBox:
+    addi a0, zero, 8 # Ensure the limit of rand function is 8
+    call rand
+    mv t5, a0 # Move the random x to t5
+    addi a0, zero, 8 # Ensure the limit of rand function is 8
+    call rand
+    mv t6, a0 # Move the random y to t6
+    
+    lw t3, 0(s11)
+    lw t4, 4(s11) # Let (t3,t4) = (x, y) hold position of character
+    
+    bne t3, t5, savePositionBox # If character_x != box_x, then generateTarget
+    beq t4, t6, generateBox
+    
+    savePositionBox:
+        sw t5, 0(s10) # Store those random (x, y) for character in memory.
+        sw t6, 4(s10) # Store those random (x, y) for character in memory.
+ 
+    generateTarget:
+    addi a0, zero, 8 # Ensure the limit of rand function is 8
+    call rand
+    mv t5, a0 # Move the random x to t5
+    addi a0, zero, 8 # Ensure the limit of rand function is 8
+    call rand
+    mv t6, a0 # Move the random y to t6
+    
+    addi t3, zero, 0
+    addi t4, zero, 0
+    
+    lw t3, 0(s11)
+    lw t4, 4(s11) # Let (t3,t4) = (x, y) hold position of character
+
+    lw t1, 0(s10)
+    lw t2, 4(s10) # Let (t3,t4) = (x, y) hold position of box
+    
+    bne t3, t5, maybeSaveXTarget # If character_x != target_x, then generateTarget
+    bne t4, t6, maybeSaveYTarget
+    
+    maybeSaveXTarget:
+        bne t1, t5, savePositionTarget # If character_x != box_x, then generateTarget
+    maybeSaveYTarget:
+        beq t2, t6, savePositionTarget
+        
+    savePositionTarget:
+        sw t5, 0(s9) # Store those random (x, y) for character in memory.
+        sw t6, 4(s9) # Store those random (x, y) for character in memory.
+    
+    # INITIAL LIGHT UP:
+    lw a0, lightOn
+        
+    lw a1, 0(s11)      # Load the value at (s11 + 0) into a1
+    lw a2, 4(s11)      # Load the value at (s11 + 4) into a2
+    call setLED         
+
+    lw a1, 0(s10)      # Load the value at (s11 + 0) into a1
+    lw a2, 4(s10)      # Load the value at (s11 + 4) into a2
+    call setLED          
+
+    lw a1, 0(s9)      # Load the value at (s11 + 0) into a1
+    lw a2, 4(s9)      # Load the value at (s11 + 4) into a2
+    call setLED           
+
+
+        
+        
+    # Set a4, a5, a6, a7 as 0 initially so what we're saying
+    # is both the start and end LED for person is (0, 0).
+    li s1, 0
+    li s2, 0
+    li s3, 0
+    li s4, 0
+    moveLight:
+        # Turn off previous light
+        lw a0, lightOff
+        mv a1, s1
+        mv a2, s2
+        call setLED
+        
+        # Turn on current light
+        lw a0, lightOn
+        mv a1, s3
+        mv a2, s4
+        call setLED
+        
+    awaitLoop:
+        call pollDpad  # Call the function to check for d-pad input
+
+        # Check the result in a0
+        bgez a0, check_movement
+        j awaitLoop  # Otherwise, continue polling in a lo
+    check_movement:
+    check_up:
+        addi t5, zero, 0
+        addi t5, s4, -1 # t5 = s4 - 1
+        blt t5, zero, condition_not_met # if t5 < 0
+        mv s1, s3
+        mv s2, s4
+        addi s4, s4, -1
+        
+        j moveLight
+    check_down:
+        addi t6, zero, 8
+        addi t5, zero, 0
+        addi t5, s4, 1 # t5 = s4 + 1
+        bge t5, t6, condition_not_met # if t5 >= 7
+        mv s1, s3
+        mv s2, s4
+        addi s4, s4, 1
+        
+        j moveLight
+
+    check_left:
+        addi t5, zero, 0
+        addi t5, s3, -1 # t5 = s4 - 1
+        blt t5, zero, condition_not_met # if t5 < 0
+        mv s1, s3
+        mv s2, s4
+        addi s3, s3, -1
+        
+        j moveLight
+        
+    check_right:
+        addi t6, zero, 8
+        addi t5, zero, 0
+        addi t5, s3, 1 # t5 = s4 + 1
+        bge t5, t6, condition_not_met # if t5 >= 7
+        mv s1, s3
+        mv s2, s4
+        addi s3, s3, 1
+        
+        j moveLight
+        
+    condition_not_met:
+        # Go to awaitMovement if any condition is not met
+        li a7, 1
+        ecall
+        j awaitLoop
+
+        
+        
+        
+
+ 
+exit:
+    li a7, 10
+    ecall
+    
+    
+# --- HELPER FUNCTIONS ---
+# Feel free to use (or modify) them however you see fit
+     
+# Takes in a number in a0, and returns a (sort of) (okay no really) random 
+# number from 0 to this number (exclusive)
+rand:
+    mv t0, a0
+    li a7, 30
+    ecall
+    remu a0, a0, t0
+    jr ra
+    
+# Takes in an RGB color in a0, an x-coordinate in a1, and a y-coordinate
+# in a2. Then it sets the led at (x, y) to the given color.
+setLED:
+    li t1, LED_MATRIX_0_WIDTH
+    mul t0, a2, t1
+    add t0, t0, a1
+    li t1, 4
+    mul t0, t0, t1
+    li t1, LED_MATRIX_0_BASE
+    add t0, t1, t0
+    sw a0, (0)t0
+    jr ra
+    
+# Polls the d-pad input until a button is pressed, then returns a number
+# representing the button that was pressed in a0.
+# The possible return values are:
+# 0: UP
+# 1: DOWN
+# 2: LEFT
+# 3: RIGHT
+pollDpad:
+    mv a0, zero
+    li t1, 4
+pollLoop:
+    bge a0, t1, pollLoopEnd
+    li t2, D_PAD_0_BASE
+    slli t3, a0, 2
+    add t2, t2, t3
+    lw t3, (0)t2
+    bnez t3, pollRelease
+    addi a0, a0, 1
+    j pollLoop
+pollLoopEnd:
+    j pollDpad
+pollRelease:
+    lw t3, (0)t2
+    bnez t3, pollRelease
+pollExit:
+    jr ra
